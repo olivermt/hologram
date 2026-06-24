@@ -68,7 +68,16 @@ defmodule Hologram.Runtime.Deserializer do
     :items,
     :kind,
     :type,
-    :types
+    :types,
+
+    # files event
+    :files,
+    :last_modified,
+    :name,
+    :reason,
+    :rejected_files,
+    :size,
+    :token
   ]
 
   # Can't use control characters in 0x00-0x1F (0-31) range

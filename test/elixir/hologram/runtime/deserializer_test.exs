@@ -30,6 +30,16 @@ defmodule Hologram.Runtime.DeserializerTest do
     assert :types in atoms_whitelist()
   end
 
+  test "atoms_whitelist/0 includes files event payload atoms" do
+    assert :files in atoms_whitelist()
+    assert :last_modified in atoms_whitelist()
+    assert :name in atoms_whitelist()
+    assert :reason in atoms_whitelist()
+    assert :rejected_files in atoms_whitelist()
+    assert :size in atoms_whitelist()
+    assert :token in atoms_whitelist()
+  end
+
   describe "version 3" do
     test "top-level data, raw JSON" do
       assert deserialize(~s'[3,"axyz"]') == :xyz

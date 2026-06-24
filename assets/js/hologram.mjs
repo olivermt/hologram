@@ -33,6 +33,7 @@ import ChangeEvent from "./events/change_event.mjs";
 import ClickEvent from "./events/click_event.mjs";
 import ClickOutsideEvent from "./events/click_outside_event.mjs";
 import DragEvent, {DropTargetDragEvent} from "./events/drag_event.mjs";
+import FilesEvent from "./events/files_event.mjs";
 import FocusEvent from "./events/focus_event.mjs";
 import InputEvent from "./events/input_event.mjs";
 import KeyboardEvent from "./events/keyboard_event.mjs";
@@ -49,6 +50,7 @@ import ManuallyPortedElixirApplication from "./elixir/application.mjs";
 import ManuallyPortedElixirCldrLocale from "./elixir/cldr/locale.mjs";
 import ManuallyPortedElixirCldrValidityU from "./elixir/cldr/validity/u.mjs";
 import ManuallyPortedElixirCode from "./elixir/code.mjs";
+import ManuallyPortedElixirHologramFiles from "./elixir/hologram/files.mjs";
 import ManuallyPortedElixirHologramJS from "./elixir/hologram/js.mjs";
 import ManuallyPortedElixirHologramRouterHelpers from "./elixir/hologram/router/helpers.mjs";
 import ManuallyPortedElixirIO from "./elixir/io.mjs";
@@ -466,6 +468,27 @@ export default class Hologram {
     );
 
     Interpreter.defineManuallyPortedFunction(
+      "Hologram.Files",
+      "delete/1",
+      "public",
+      ManuallyPortedElixirHologramFiles["delete/1"],
+    );
+
+    Interpreter.defineManuallyPortedFunction(
+      "Hologram.Files",
+      "upload/2",
+      "public",
+      ManuallyPortedElixirHologramFiles["upload/2"],
+    );
+
+    Interpreter.defineManuallyPortedFunction(
+      "Hologram.Files",
+      "upload/3",
+      "public",
+      ManuallyPortedElixirHologramFiles["upload/3"],
+    );
+
+    Interpreter.defineManuallyPortedFunction(
       "Hologram.JS",
       "call/4",
       "public",
@@ -815,6 +838,9 @@ export default class Hologram {
       case "dragover":
       case "drop":
         return DropTargetDragEvent;
+
+      case "files":
+        return FilesEvent;
 
       case "input":
         return InputEvent;
