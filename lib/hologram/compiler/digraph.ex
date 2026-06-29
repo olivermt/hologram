@@ -179,8 +179,8 @@ defmodule Hologram.Compiler.Digraph do
   If none of the starting vertices exist in the graph, returns an empty list.
   Non-existent starting vertices are ignored.
   """
-  @spec reachable(t, [vertex]) :: [vertex]
-  def reachable(graph, starting_vertices) do
+  @spec reachable(t, [vertex], keyword) :: [vertex]
+  def reachable(graph, starting_vertices, opts \\ []) do
     %Digraph{vertices: vertices, outgoing_edges: outgoing_edges} = graph
 
     existing_vertices = Enum.filter(starting_vertices, &Map.has_key?(vertices, &1))
@@ -193,7 +193,7 @@ defmodule Hologram.Compiler.Digraph do
       visited = MapSet.new(existing_vertices)
 
       queue
-      |> bfs_reachable(visited, outgoing_edges, [])
+      |> bfs_reachable(visited, outgoing_edges, opts)
       |> MapSet.to_list()
     end
   end
@@ -468,12 +468,19 @@ defmodule Hologram.Compiler.Digraph do
         else
           # Get neighbors of current vertex
           neighbors = Map.get(edges, current, %{})
+          blocked_vertices = opts[:blocked_vertices]
+          traverse_edge? = opts[:traverse_edge?]
 
           # Add unvisited neighbors to queue and visited set
           {new_queue, new_visited} =
             Enum.reduce(neighbors, {rest_queue, visited}, fn {neighbor, _flag},
                                                              {acc_queue, acc_visited} ->
-              if MapSet.member?(acc_visited, neighbor) do
+              skip_neighbor? =
+                MapSet.member?(acc_visited, neighbor) ||
+                  (blocked_vertices && MapSet.member?(blocked_vertices, neighbor)) ||
+                  (traverse_edge? && !traverse_edge?.(current, neighbor))
+
+              if skip_neighbor? do
                 {acc_queue, acc_visited}
               else
                 {

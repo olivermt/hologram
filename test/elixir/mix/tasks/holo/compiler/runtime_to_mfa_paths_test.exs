@@ -6,14 +6,20 @@ defmodule Mix.Tasks.Holo.Compiler.RuntimeToMfaPathsTest do
   alias Mix.Tasks.Holo.Compiler.RuntimeToMfaPaths, as: Task
 
   test "run/1" do
-    output = capture_io(fn -> Task.run(["{URI, :default_port, 1}"]) end)
+    output = capture_io(fn -> Task.run(["{Enum, :into_protocol, 2}"]) end)
 
     expected =
       normalize_newlines("""
-      {String.Chars, :to_string, 1} -> {URI, :default_port, 1}
-      [{String.Chars, :to_string, 1}, {String.Chars.URI, :to_string, 1}, {URI, :default_port, 1}]
+      {Enum, :into, 2} -> {Enum, :into_protocol, 2}
+      [{Enum, :into, 2}, {Enum, :into_protocol, 2}]
       """)
 
     assert String.contains?(output, expected)
+  end
+
+  test "doesn't print paths to MFAs excluded from the shared runtime" do
+    output = capture_io(fn -> Task.run(["{String.Chars, :to_string, 1}"]) end)
+
+    assert output == ""
   end
 end

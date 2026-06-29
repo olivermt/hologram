@@ -141,7 +141,6 @@ export default class Renderer {
 
   // Similar to Kernel.to_string/1
   // (it is supposed to be a fast alternative to Kernel.to_string/1 for the client-side renderer only)
-  // Deps: [String.Chars.to_string/1]
   static toText(term) {
     // Cases ordered by expected frequency (most common first)
     switch (term.type) {

@@ -229,6 +229,88 @@ defmodule Hologram.Compiler.CallGraphTest do
       assert sorted_edges(call_graph) == []
     end
 
+    test "template function definition ir, without interpolation does not add String.Chars edge",
+         %{
+           empty_call_graph: call_graph
+         } do
+      ir = %IR.FunctionDefinition{
+        name: :template,
+        arity: 0,
+        visibility: :public,
+        clause: %IR.FunctionClause{
+          params: [],
+          guards: [],
+          body: %IR.Block{
+            expressions: [
+              %IR.ListType{
+                data: [
+                  %IR.TupleType{
+                    data: [
+                      %IR.AtomType{value: :text},
+                      %IR.StringType{value: "abc"}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+
+      result = build(call_graph, ir, Module1)
+
+      assert result == call_graph
+
+      refute has_edge?(call_graph, {Module1, :template, 0}, {String.Chars, :to_string, 1})
+    end
+
+    test "template function definition ir, with interpolation adds String.Chars edge", %{
+      empty_call_graph: call_graph
+    } do
+      ir = %IR.FunctionDefinition{
+        name: :template,
+        arity: 0,
+        visibility: :public,
+        clause: %IR.FunctionClause{
+          params: [],
+          guards: [],
+          body: %IR.Block{
+            expressions: [
+              %IR.AnonymousFunctionType{
+                arity: 1,
+                clauses: [
+                  %IR.FunctionClause{
+                    params: [%IR.Variable{name: :vars}],
+                    guards: [],
+                    body: %IR.Block{
+                      expressions: [
+                        %IR.ListType{
+                          data: [
+                            %IR.TupleType{
+                              data: [
+                                %IR.AtomType{value: :expression},
+                                %IR.TupleType{data: [%IR.Variable{name: :vars}]}
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+
+      result = build(call_graph, ir, Module1)
+
+      assert result == call_graph
+
+      assert has_edge?(call_graph, {Module1, :template, 0}, {String.Chars, :to_string, 1})
+    end
+
     test "list", %{empty_call_graph: call_graph} do
       list = [%IR.AtomType{value: Module1}, %IR.AtomType{value: Module5}]
       result = build(call_graph, list, :vertex_1)
@@ -906,6 +988,21 @@ defmodule Hologram.Compiler.CallGraphTest do
       refute {String.Chars.Hex.Solver.PackageRange, :to_string, 1} in result
     end
 
+    test "includes String.Chars implementations reachable from template interpolation" do
+      module_17_ir = IR.for_module(Module17)
+      string_chars_ir = IR.for_module(String.Chars)
+
+      result =
+        start()
+        |> build(module_17_ir)
+        |> build(string_chars_ir)
+        |> add_edge({Module17, :template, 0}, {String.Chars, :to_string, 1})
+        |> list_page_mfas(Module17)
+
+      assert {StringCharsModule12, :__impl__, 1} in result
+      assert {StringCharsModule12, :to_string, 1} in result
+    end
+
     test "excludes MFAs reachable only from server inits of components used by the page", %{
       page_module_22_mfas: result
     } do
@@ -976,10 +1073,10 @@ defmodule Hologram.Compiler.CallGraphTest do
     result = list_runtime_entry_mfas()
 
     assert {:erlang, :error, 1} in result
-    assert {String.Chars, :to_string, 1} in result
 
     assert {Hologram.Router.Helpers, :page_path, 1} in result
 
+    refute {String.Chars, :to_string, 1} in result
     refute {:unicode, :characters_to_binary, 1} in result
     refute {Hologram.Router.Helpers, :asset_path, 1} in result
   end
@@ -1048,7 +1145,7 @@ defmodule Hologram.Compiler.CallGraphTest do
       refute {Hex.Registry.Server, :versions, 2} in result
     end
 
-    test "excludes Hex implementations for Inspect and String.Chars protocols", %{
+    test "excludes Hex implementations for Inspect protocol", %{
       runtime_mfas: result
     } do
       assert {Inspect.Integer, :__impl__, 1} in result
@@ -1056,12 +1153,20 @@ defmodule Hologram.Compiler.CallGraphTest do
 
       refute {Inspect.Hex.Solver.PackageRange, :__impl__, 1} in result
       refute {Inspect.Hex.Solver.PackageRange, :inspect, 2} in result
+    end
 
-      assert {String.Chars.Integer, :__impl__, 1} in result
-      assert {String.Chars.Integer, :to_string, 1} in result
+    test "excludes String.Chars protocol implementations reached only through the runtime shim",
+         %{
+           runtime_mfas: result
+         } do
+      refute {String.Chars, :to_string, 1} in result
 
+      refute {String.Chars.Integer, :__impl__, 1} in result
+      refute {String.Chars.Integer, :to_string, 1} in result
       refute {String.Chars.Hex.Solver.PackageRange, :__impl__, 1} in result
       refute {String.Chars.Hex.Solver.PackageRange, :to_string, 1} in result
+      refute {StringCharsModule12, :__impl__, 1} in result
+      refute {StringCharsModule12, :to_string, 1} in result
     end
 
     test "results are deduped", %{runtime_mfas: result} do
