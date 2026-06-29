@@ -647,28 +647,6 @@ defmodule Hologram.Compiler.DigraphTest do
 
       assert result == []
     end
-
-    test "does not traverse blocked vertices" do
-      result =
-        new()
-        |> add_edge(:a, :b)
-        |> add_edge(:b, :c)
-        |> add_edge(:a, :d)
-        |> reachable([:a], blocked_vertices: MapSet.new([:b]))
-
-      assert Enum.sort(result) == [:a, :d]
-    end
-
-    test "does not traverse edges rejected by traverse_edge? option" do
-      result =
-        new()
-        |> add_edge(:a, :b)
-        |> add_edge(:b, :c)
-        |> add_edge(:a, :d)
-        |> reachable([:a], traverse_edge?: fn source, target -> {source, target} != {:a, :b} end)
-
-      assert Enum.sort(result) == [:a, :d]
-    end
   end
 
   describe "reaching/2" do

@@ -259,10 +259,6 @@ defmodule Hologram.Compiler.CallGraph do
     {URI, :encode, 2}
   ]
 
-  @runtime_shimmed_elixir_mfas [
-    {String.Chars, :to_string, 1}
-  ]
-
   @mfas_used_by_all_pages_and_components [
     # Used by __params__/0 and __props__/0 functions injected into page and component modules respectively.
     {Enum, :reverse, 1},
@@ -317,6 +313,7 @@ defmodule Hologram.Compiler.CallGraph do
       {:maps, :put, 3}
     ],
     renderer_class: [
+      {String.Chars, :to_string, 1},
       {:erlang, :binary_to_atom, 1},
       {:lists, :flatten, 1},
       {:lists, :keyfind, 3},
@@ -402,7 +399,6 @@ defmodule Hologram.Compiler.CallGraph do
 
     call_graph
     |> add_vertex(fun_def_vertex)
-    |> maybe_add_template_stringification_edge(fun_def_vertex, name, arity, clause)
     |> build(clause, fun_def_vertex)
   end
 
@@ -676,11 +672,10 @@ defmodule Hologram.Compiler.CallGraph do
   @spec list_runtime_mfas(t) :: [mfa]
   def list_runtime_mfas(call_graph) do
     entry_mfas = list_runtime_entry_mfas()
-    blocked_mfas = MapSet.new(@runtime_shimmed_elixir_mfas)
 
     call_graph
     |> get_graph()
-    |> sorted_reachable_mfas(entry_mfas, blocked_vertices: blocked_mfas)
+    |> sorted_reachable_mfas(entry_mfas)
     |> reject_hex_mfas()
   end
 
@@ -777,10 +772,10 @@ defmodule Hologram.Compiler.CallGraph do
   Lists MFAs that are reachable from the given call graph vertices.
   Unimplemented protocol implementations are excluded.
   """
-  @spec reachable_mfas(Digraph.t(), [vertex], keyword) :: [mfa]
-  def reachable_mfas(graph, vertices, opts \\ []) do
+  @spec reachable_mfas(Digraph.t(), [vertex]) :: [mfa]
+  def reachable_mfas(graph, vertices) do
     graph
-    |> Digraph.reachable(vertices, opts)
+    |> Digraph.reachable(vertices)
     |> Enum.filter(fn
       # Some protocol implementations are referenced but not actually implemented, e.g. Collectable.Atom
       {module, _function, _arity} -> Reflection.module?(module)
@@ -903,10 +898,10 @@ defmodule Hologram.Compiler.CallGraph do
   Unimplemented protocol implementations are excluded.
   The MFAs returned are sorted.
   """
-  @spec sorted_reachable_mfas(Digraph.t(), [vertex], keyword) :: [mfa]
-  def sorted_reachable_mfas(graph, vertices, opts \\ []) do
+  @spec sorted_reachable_mfas(Digraph.t(), [vertex]) :: [mfa]
+  def sorted_reachable_mfas(graph, vertices) do
     graph
-    |> reachable_mfas(vertices, opts)
+    |> reachable_mfas(vertices)
     |> Enum.sort()
   end
 
@@ -1037,18 +1032,6 @@ defmodule Hologram.Compiler.CallGraph do
     call_graph
   end
 
-  defp maybe_add_template_stringification_edge(call_graph, from_vertex, :template, 0, clause) do
-    if template_expression?(clause) do
-      add_edge(call_graph, from_vertex, {String.Chars, :to_string, 1})
-    else
-      call_graph
-    end
-  end
-
-  defp maybe_add_template_stringification_edge(call_graph, _from_vertex, _name, _arity, _clause) do
-    call_graph
-  end
-
   defp maybe_add_templatable_call_graph_edges(call_graph, module) do
     if Reflection.page?(module) do
       add_page_call_graph_edges(call_graph, module)
@@ -1078,28 +1061,4 @@ defmodule Hologram.Compiler.CallGraph do
   defp remove_module_vertices(call_graph, module) do
     remove_vertices(call_graph, module_vertices(call_graph, module))
   end
-
-  defp template_expression?(%IR.TupleType{
-         data: [%IR.AtomType{value: :expression}, _value]
-       }) do
-    true
-  end
-
-  defp template_expression?(term) when is_list(term) do
-    Enum.any?(term, &template_expression?/1)
-  end
-
-  defp template_expression?(term) when is_map(term) do
-    term
-    |> Map.values()
-    |> template_expression?()
-  end
-
-  defp template_expression?(term) when is_tuple(term) do
-    term
-    |> Tuple.to_list()
-    |> template_expression?()
-  end
-
-  defp template_expression?(_term), do: false
 end
