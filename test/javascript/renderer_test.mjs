@@ -6041,6 +6041,91 @@ describe("Renderer", () => {
     });
   });
 
+  describe("selection_change binding", () => {
+    const actionSpecDom = Type.list([
+      Type.tuple([Type.atom("text"), Type.bitstring("my_action")]),
+    ]);
+
+    beforeEach(() => {
+      Renderer.listenerBindings = [];
+    });
+
+    afterEach(() => {
+      if (Hologram.handleUiEvent.restore) {
+        Hologram.handleUiEvent.restore();
+      }
+    });
+
+    it("attaches no per-element listener and collects a document-level selectionchange binding", () => {
+      // <div $selection_change="my_action"></div>
+      const node = Type.tuple([
+        Type.atom("element"),
+        Type.bitstring("div"),
+        Type.list([
+          Type.tuple([Type.bitstring("$selection_change"), actionSpecDom]),
+        ]),
+        Type.list(),
+      ]);
+
+      const vdom = Renderer.renderDom(
+        node,
+        context,
+        slots,
+        defaultTarget,
+        parentTagName,
+      );
+
+      assert.deepStrictEqual(vdom.data.on, {});
+
+      assert.equal(Renderer.listenerBindings.length, 1);
+      assert.equal(Renderer.listenerBindings[0].target, document);
+      assert.equal(Renderer.listenerBindings[0].key, "bubble:selectionchange");
+    });
+
+    it("dispatches with the bound element as target and currentTarget", () => {
+      // <div $selection_change="my_action"></div>
+      const node = Type.tuple([
+        Type.atom("element"),
+        Type.bitstring("div"),
+        Type.list([
+          Type.tuple([Type.bitstring("$selection_change"), actionSpecDom]),
+        ]),
+        Type.list(),
+      ]);
+
+      const vdom = Renderer.renderDom(
+        node,
+        context,
+        slots,
+        defaultTarget,
+        parentTagName,
+      );
+
+      vdom.elm = document.createElement("div");
+
+      const stub = sinon
+        .stub(Hologram, "handleUiEvent")
+        .callsFake(
+          (_event, _eventType, _operationSpecVdom, _defaultTarget) => null,
+        );
+
+      Renderer.listenerBindings[0].handler({
+        preventDefault: () => {},
+        stopPropagation: () => {},
+      });
+
+      sinon.assert.calledOnce(stub);
+
+      const [event, eventType, operationSpecDom, target] = stub.firstCall.args;
+
+      assert.equal(event.target, vdom.elm);
+      assert.equal(event.currentTarget, vdom.elm);
+      assert.equal(eventType, "selectionchange");
+      assert.equal(operationSpecDom, actionSpecDom);
+      assert.equal(target, defaultTarget);
+    });
+  });
+
   describe("reach binding", () => {
     const actionSpecDom = Type.list([
       Type.tuple([Type.atom("text"), Type.bitstring("my_action")]),
