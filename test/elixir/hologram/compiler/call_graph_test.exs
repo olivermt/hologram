@@ -1443,6 +1443,9 @@ defmodule Hologram.Compiler.CallGraphTest do
     result = manually_ported_elixir_mfas()
 
     assert is_list(result)
+    assert {Hologram.Files, :delete, 1} in result
+    assert {Hologram.Files, :upload, 2} in result
+    assert {Hologram.Files, :upload, 3} in result
     assert {Kernel, :inspect, 1} in result
     assert {String, :upcase, 1} in result
   end

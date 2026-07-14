@@ -13,6 +13,7 @@ import ComponentRegistry from "../../assets/js/component_registry.mjs";
 import Config from "../../assets/js/config.mjs";
 import EventListenerRegistry from "../../assets/js/event_listener_registry.mjs";
 import EventListeners from "../../assets/js/event_listeners.mjs";
+import FileRegistry from "../../assets/js/file_registry.mjs";
 import Hologram from "../../assets/js/hologram.mjs";
 import InitActionQueue from "../../assets/js/init_action_queue.mjs";
 import Renderer from "../../assets/js/renderer.mjs";
@@ -830,6 +831,44 @@ describe("Hologram", () => {
 
       sinon.assert.calledOnce(preventDefault);
       sinon.assert.calledOnce(executeActionStub);
+    });
+
+    it("prevents default for files events", () => {
+      const preventDefault = sinon.spy();
+      const file = {name: "banner.png", size: 123, type: "image/png"};
+      const target = {
+        files: [file],
+        getAttribute: () => null,
+      };
+
+      const dispatch = Hologram.handleUiEvent(
+        {target, currentTarget: target, preventDefault},
+        "files",
+        actionSpecDom,
+        defaultTarget,
+      );
+
+      dispatch();
+
+      sinon.assert.calledOnce(preventDefault);
+      sinon.assert.calledOnce(executeActionStub);
+      FileRegistry.clear();
+    });
+
+    it("ignores files events with no files", () => {
+      const preventDefault = sinon.spy();
+      const target = {getAttribute: () => null};
+
+      const dispatch = Hologram.handleUiEvent(
+        {target, currentTarget: target, preventDefault},
+        "files",
+        actionSpecDom,
+        defaultTarget,
+      );
+
+      assert.isNull(dispatch);
+      sinon.assert.notCalled(preventDefault);
+      sinon.assert.notCalled(executeActionStub);
     });
 
     it("does not stop propagation by default", () => {

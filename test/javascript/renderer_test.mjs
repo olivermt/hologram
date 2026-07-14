@@ -1152,6 +1152,160 @@ describe("Renderer", () => {
             Hologram.handleUiEvent.restore();
           });
 
+          it("maps $files to change for file input elements", () => {
+            const node = Type.tuple([
+              Type.atom("element"),
+              Type.bitstring("input"),
+              Type.list([
+                Type.tuple([
+                  Type.bitstring("type"),
+                  Type.keywordList([
+                    [Type.atom("text"), Type.bitstring("file")],
+                  ]),
+                ]),
+                Type.tuple([
+                  Type.bitstring("$files"),
+                  Type.list([
+                    Type.tuple([
+                      Type.atom("text"),
+                      Type.bitstring("my_action"),
+                    ]),
+                  ]),
+                ]),
+              ]),
+              Type.list(),
+            ]);
+
+            const vdom = Renderer.renderDom(
+              node,
+              context,
+              slots,
+              defaultTarget,
+              parentTagName,
+            );
+
+            assert.deepStrictEqual(Object.keys(vdom.data.on), ["change"]);
+
+            const stub = sinon
+              .stub(Hologram, "handleUiEvent")
+              .callsFake((..._args) => null);
+
+            vdom.data.on.change("dummyEvent");
+
+            sinon.assert.calledWith(
+              stub,
+              "dummyEvent",
+              "files",
+              Type.list([
+                Type.tuple([Type.atom("text"), Type.bitstring("my_action")]),
+              ]),
+              defaultTarget,
+            );
+
+            Hologram.handleUiEvent.restore();
+          });
+
+          it("maps $files to drop for non-input elements and prevents file dragover default", () => {
+            const node = Type.tuple([
+              Type.atom("element"),
+              Type.bitstring("div"),
+              Type.list([
+                Type.tuple([
+                  Type.bitstring("$files"),
+                  Type.list([
+                    Type.tuple([
+                      Type.atom("text"),
+                      Type.bitstring("my_action"),
+                    ]),
+                  ]),
+                ]),
+              ]),
+              Type.list(),
+            ]);
+
+            const vdom = Renderer.renderDom(
+              node,
+              context,
+              slots,
+              defaultTarget,
+              parentTagName,
+            );
+
+            assert.deepStrictEqual(Object.keys(vdom.data.on), [
+              "drop",
+              "dragover",
+            ]);
+
+            const stub = sinon
+              .stub(Hologram, "handleUiEvent")
+              .callsFake((..._args) => null);
+
+            vdom.data.on.drop("dummyEvent");
+
+            sinon.assert.calledWith(
+              stub,
+              "dummyEvent",
+              "files",
+              Type.list([
+                Type.tuple([Type.atom("text"), Type.bitstring("my_action")]),
+              ]),
+              defaultTarget,
+            );
+
+            const dragOverEvent = {
+              dataTransfer: {types: ["Files"]},
+              preventDefault: sinon.spy(),
+            };
+
+            vdom.data.on.dragover(dragOverEvent);
+            sinon.assert.calledOnce(dragOverEvent.preventDefault);
+
+            const nonFileDragOverEvent = {
+              dataTransfer: {types: ["text/plain"]},
+              preventDefault: sinon.spy(),
+            };
+
+            vdom.data.on.dragover(nonFileDragOverEvent);
+            sinon.assert.notCalled(nonFileDragOverEvent.preventDefault);
+
+            Hologram.handleUiEvent.restore();
+          });
+
+          it("keeps $change event for file input elements", () => {
+            const node = Type.tuple([
+              Type.atom("element"),
+              Type.bitstring("input"),
+              Type.list([
+                Type.tuple([
+                  Type.bitstring("type"),
+                  Type.keywordList([
+                    [Type.atom("text"), Type.bitstring("file")],
+                  ]),
+                ]),
+                Type.tuple([
+                  Type.bitstring("$change"),
+                  Type.list([
+                    Type.tuple([
+                      Type.atom("text"),
+                      Type.bitstring("my_action"),
+                    ]),
+                  ]),
+                ]),
+              ]),
+              Type.list(),
+            ]);
+
+            const vdom = Renderer.renderDom(
+              node,
+              context,
+              slots,
+              defaultTarget,
+              parentTagName,
+            );
+
+            assert.deepStrictEqual(Object.keys(vdom.data.on), ["change"]);
+          });
+
           it("maps $change event to $input event for textarea element", () => {
             const node = Type.tuple([
               Type.atom("element"),

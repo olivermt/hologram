@@ -311,10 +311,13 @@ export default class Renderer {
       attrsVdom,
     );
 
+    const eventType =
+      normalizedEventName === "files" ? "files" : effectiveDomEventName;
+
     const handler = $.#buildEventHandler(
       attrDom,
       slotKey,
-      effectiveDomEventName,
+      eventType,
       defaultTarget,
     );
 
@@ -329,7 +332,7 @@ export default class Renderer {
   static #buildEventHandler(
     attrDom,
     slotKey,
-    effectiveDomEventName,
+    eventType,
     defaultTarget,
     getThrottleTarget = (event) => event.currentTarget,
     transformEvent = (event) => event,
@@ -359,7 +362,7 @@ export default class Renderer {
 
       const dispatch = Hologram.handleUiEvent(
         operationEvent,
-        effectiveDomEventName,
+        eventType,
         attrDom.data[1],
         defaultTarget,
         allowDefault,
@@ -693,6 +696,14 @@ export default class Renderer {
     return null;
   }
 
+  static #filesEventDomEventName(tagName, attrsVdom) {
+    if (tagName === "input" && (attrsVdom?.type || "text") === "file") {
+      return "change";
+    }
+
+    return "drop";
+  }
+
   // Based on expand_slots/2 (including fallback case)
   static #expandSlots(dom, slots) {
     if (Type.isList(dom)) {
@@ -895,12 +906,40 @@ export default class Renderer {
     return inputType !== "checkbox" && inputType !== "radio";
   }
 
+  static #isFileDrag(event) {
+    const dataTransfer = event.dataTransfer;
+
+    if (!dataTransfer) {
+      return false;
+    }
+
+    if (dataTransfer.types) {
+      return Array.from(dataTransfer.types).includes("Files");
+    }
+
+    if (dataTransfer.items) {
+      return Array.from(dataTransfer.items).some(
+        (item) => item.kind === "file",
+      );
+    }
+
+    return false;
+  }
+
   static #mapEventName(eventName, tagName, attrsVdom) {
+    if (eventName === "files") {
+      return $.#filesEventDomEventName(tagName, attrsVdom);
+    }
+
     if (eventName === "change") {
       if (tagName === "input") {
         const inputType = attrsVdom?.type || "text";
 
-        if (inputType !== "checkbox" && inputType !== "radio") {
+        if (
+          inputType !== "checkbox" &&
+          inputType !== "radio" &&
+          inputType !== "file"
+        ) {
           return "input";
         }
       } else if (tagName === "textarea") {
@@ -1368,6 +1407,15 @@ export default class Renderer {
       return acc;
     }, {});
 
+    if ($.#shouldPreventDragOverForFiles(attrsDom, tagName, attrsVdom)) {
+      handlersByEvent.dragover = handlersByEvent.dragover || [];
+      handlersByEvent.dragover.push((event) => {
+        if ($.#isFileDrag(event)) {
+          event.preventDefault();
+        }
+      });
+    }
+
     // A DOM event name can have several bindings on one element (e.g. multiple keyboard key
     // filters), so each event maps to a single dispatcher that runs every registered handler.
     return Object.fromEntries(
@@ -1376,6 +1424,17 @@ export default class Renderer {
         (event) => handlers.forEach((handler) => handler(event)),
       ]),
     );
+  }
+
+  static #shouldPreventDragOverForFiles(attrsDom, tagName, attrsVdom) {
+    if (tagName === "input" && (attrsVdom?.type || "text") === "file") {
+      return false;
+    }
+
+    return attrsDom.data.some((attrDom) => {
+      const attributeName = Bitstring.toText(attrDom.data[0]);
+      return attributeName === "$files" || attributeName.startsWith("$files.");
+    });
   }
 
   // Based on render_dom/3 (list case)
