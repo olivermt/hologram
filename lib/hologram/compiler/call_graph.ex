@@ -18,8 +18,7 @@ defmodule Hologram.Compiler.CallGraph do
   @type edge :: {vertex, vertex}
 
   @type server_callback_analysis :: %{
-          dispatch_types: MapSet.t(module),
-          reflection_mfas: [mfa]
+          dispatch_types: MapSet.t(module)
         }
 
   @type vertex :: module | mfa
@@ -723,8 +722,8 @@ defmodule Hologram.Compiler.CallGraph do
 
   @doc """
   Returns the sorted list of MFAs that are reachable by the given page.
-  Server dispatch types and reflection MFAs of the page's templatables are
-  looked up in the given precomputed server callback analysis.
+  Server dispatch types of the page's templatables are looked up in the given
+  precomputed server callback analysis.
 
   Benchmark: https://github.com/bartblast/hologram/blob/master/benchmarks/elixir/compiler/call_graph/list_page_mfas_3/README.md
   """
@@ -747,11 +746,6 @@ defmodule Hologram.Compiler.CallGraph do
     graph
     |> finalize_reachable_mfas(final_state)
     |> reject_hex_mfas()
-    |> add_reflection_mfas_reachable_from_server_inits(
-      page_module,
-      server_callback_analysis_by_templatable
-    )
-    |> Enum.uniq()
     |> Enum.sort()
   end
 
@@ -1026,8 +1020,7 @@ defmodule Hologram.Compiler.CallGraph do
   @doc """
   Returns the server callback analysis of each given templatable module: the
   protocol dispatch types that can appear in its server-executed code (code
-  reachable from its init/3 and command/3 callbacks) and the reflection MFAs
-  reachable from its init/3.
+  reachable from its init/3 and command/3 callbacks).
   Templatables are analyzed sequentially, since spawning a task per templatable
   would copy the whole graph into each task process, which costs far more than
   the traversals themselves.
@@ -1039,8 +1032,7 @@ defmodule Hologram.Compiler.CallGraph do
   def server_callback_analysis_by_templatable(graph, templatables) do
     Map.new(templatables, fn templatable ->
       analysis = %{
-        dispatch_types: server_protocol_dispatch_types(graph, [templatable]),
-        reflection_mfas: list_reflection_mfas_reachable_from_server_init(templatable, graph)
+        dispatch_types: server_protocol_dispatch_types(graph, [templatable])
       }
 
       {templatable, analysis}
@@ -1190,28 +1182,6 @@ defmodule Hologram.Compiler.CallGraph do
     add_edges(call_graph, edges)
   end
 
-  # Adds reflection MFAs, i.e.:
-  # * __changeset__/0
-  # * __schema__/1
-  # * __schema__/2
-  # * __struct__/0
-  # * __struct__/1
-  # that are reachable from server inits (init/3) of the components used by the page.
-  defp add_reflection_mfas_reachable_from_server_inits(
-         page_mfas,
-         page_module,
-         server_callback_analysis_by_templatable
-       ) do
-    templatables = [page_module | extract_uniq_components(page_mfas)]
-
-    added_mfas =
-      Enum.flat_map(templatables, fn templatable ->
-        server_callback_analysis_by_templatable[templatable].reflection_mfas
-      end)
-
-    page_mfas ++ added_mfas
-  end
-
   # Runs protocol-aware reachability rounds until no new implementations become
   # reachable. Each round traverses only vertices not yet in the state, extends the
   # dispatch types only from the newly reached vertices, and evaluates only the new
@@ -1285,21 +1255,6 @@ defmodule Hologram.Compiler.CallGraph do
 
   defp incoming_edges(%{pid: pid}, vertex) do
     Agent.get(pid, &Digraph.incoming_edges(&1, vertex), :infinity)
-  end
-
-  defp list_reflection_mfas_reachable_from_server_init(templetable, graph) do
-    graph
-    |> Digraph.reachable([{templetable, :init, 3}])
-    |> Enum.filter(fn mfa ->
-      case mfa do
-        {_module, :__changeset__, 0} -> true
-        {_module, :__schema__, 1} -> true
-        {_module, :__schema__, 2} -> true
-        {_module, :__struct__, 0} -> true
-        {_module, :__struct__, 1} -> true
-        _falback -> false
-      end
-    end)
   end
 
   defp maybe_add_ecto_schema_call_graph_edges(call_graph, module) do

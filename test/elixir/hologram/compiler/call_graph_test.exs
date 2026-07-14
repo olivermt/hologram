@@ -1179,56 +1179,47 @@ defmodule Hologram.Compiler.CallGraphTest do
       refute {Module13, :my_fun, 0} in result
     end
 
-    test "includes reflection MFAs reachable from server inits of components used by the page", %{
-      page_module_22_mfas: result
-    } do
-      assert {Module24, :__changeset__, 0} in result
-      assert {Module24, :__schema__, 1} in result
-      assert {Module24, :__schema__, 2} in result
+    test "excludes reflection MFAs reachable only from server inits of components used by the page",
+         %{
+           page_module_22_mfas: result
+         } do
+      refute {Module24, :__changeset__, 0} in result
+      refute {Module24, :__schema__, 1} in result
+      refute {Module24, :__schema__, 2} in result
 
-      assert {Module25, :__struct__, 0} in result
-      assert {Module25, :__struct__, 1} in result
+      refute {Module25, :__struct__, 0} in result
+      refute {Module25, :__struct__, 1} in result
 
-      assert {Module27, :__changeset__, 0} in result
-      assert {Module27, :__schema__, 1} in result
-      assert {Module27, :__schema__, 2} in result
+      refute {Module27, :__changeset__, 0} in result
+      refute {Module27, :__schema__, 1} in result
+      refute {Module27, :__schema__, 2} in result
 
-      assert {Module28, :__struct__, 0} in result
-      assert {Module28, :__struct__, 1} in result
+      refute {Module28, :__struct__, 0} in result
+      refute {Module28, :__struct__, 1} in result
 
-      assert {Module30, :__changeset__, 0} in result
-      assert {Module30, :__schema__, 1} in result
-      assert {Module30, :__schema__, 2} in result
+      refute {Module30, :__changeset__, 0} in result
+      refute {Module30, :__schema__, 1} in result
+      refute {Module30, :__schema__, 2} in result
 
-      assert {Module31, :__struct__, 0} in result
-      assert {Module31, :__struct__, 1} in result
+      refute {Module31, :__struct__, 0} in result
+      refute {Module31, :__struct__, 1} in result
 
-      assert {Module32, :__changeset__, 0} in result
-      assert {Module32, :__schema__, 1} in result
-      assert {Module32, :__schema__, 2} in result
+      refute {Module32, :__changeset__, 0} in result
+      refute {Module32, :__schema__, 1} in result
+      refute {Module32, :__schema__, 2} in result
 
-      assert {Module33, :__struct__, 0} in result
-      assert {Module33, :__struct__, 1} in result
+      refute {Module33, :__struct__, 0} in result
+      refute {Module33, :__struct__, 1} in result
 
-      assert {Module35, :__changeset__, 0} in result
-      assert {Module35, :__schema__, 1} in result
-      assert {Module35, :__schema__, 2} in result
+      refute {Module35, :__changeset__, 0} in result
+      refute {Module35, :__schema__, 1} in result
+      refute {Module35, :__schema__, 2} in result
 
-      assert {Module36, :__struct__, 0} in result
-      assert {Module36, :__struct__, 1} in result
+      refute {Module36, :__struct__, 0} in result
+      refute {Module36, :__struct__, 1} in result
 
-      assert {Module37, :__struct__, 0} in result
-      assert {Module37, :__struct__, 1} in result
-    end
-
-    test "removes duplicate reflection MFAs reachable from server inits of components used by the page",
-         %{page_module_22_mfas: result} do
-      assert Enum.count(result, &(&1 == {Module32, :__changeset__, 0})) == 1
-      assert Enum.count(result, &(&1 == {Module32, :__schema__, 1})) == 1
-      assert Enum.count(result, &(&1 == {Module32, :__schema__, 2})) == 1
-
-      assert Enum.count(result, &(&1 == {Module37, :__struct__, 0})) == 1
-      assert Enum.count(result, &(&1 == {Module37, :__struct__, 1})) == 1
+      refute {Module37, :__struct__, 0} in result
+      refute {Module37, :__struct__, 1} in result
     end
 
     test "results are deduped", %{page_module_22_mfas: result} do
@@ -2009,7 +2000,7 @@ defmodule Hologram.Compiler.CallGraphTest do
       refute Struct1 in result[Module4].dispatch_types
     end
 
-    test "collects reflection MFAs reachable from init/3" do
+    test "doesn't collect reflection MFAs reachable from init/3" do
       graph =
         Digraph.new()
         |> Digraph.add_edge({Module2, :init, 3}, {Module5, :my_fun, 0})
@@ -2017,15 +2008,7 @@ defmodule Hologram.Compiler.CallGraphTest do
 
       result = server_callback_analysis_by_templatable(graph, [Module2])
 
-      assert result[Module2].reflection_mfas == [{Module5, :__schema__, 1}]
-    end
-
-    test "doesn't collect reflection MFAs reachable only from command/3" do
-      graph = Digraph.add_edge(Digraph.new(), {Module2, :command, 3}, {Module5, :__schema__, 1})
-
-      result = server_callback_analysis_by_templatable(graph, [Module2])
-
-      assert result[Module2].reflection_mfas == []
+      refute Map.has_key?(result[Module2], :reflection_mfas)
     end
   end
 
