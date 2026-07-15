@@ -774,10 +774,10 @@ defmodule Hologram.Compiler.CallGraph do
     entry_mfas = list_runtime_entry_mfas()
     graph = get_graph(call_graph)
 
-    app_types = app_protocol_dispatch_types(graph, pages)
+    runtime_types = runtime_protocol_dispatch_types(graph, pages)
 
     graph
-    |> reachable_mfas(entry_mfas, app_types)
+    |> reachable_mfas(entry_mfas, runtime_types)
     |> reject_hex_mfas()
     |> Enum.sort()
   end
@@ -1037,6 +1037,30 @@ defmodule Hologram.Compiler.CallGraph do
 
       {templatable, analysis}
     end)
+  end
+
+  @doc """
+  Returns the set of types that can appear at protocol dispatch in the shared
+  client runtime: types reachable from page client code, plus types reachable
+  from server code that broadcasts actions to connected clients.
+
+  Server callback-only types are intentionally excluded here. They are still used
+  when computing page bundle MFAs, but adding them to the shared runtime makes a
+  server-only struct pull its protocol implementation subtree into every runtime
+  bundle.
+  """
+  @spec runtime_protocol_dispatch_types(Digraph.t(), [module]) :: MapSet.t(module)
+  def runtime_protocol_dispatch_types(graph, pages) do
+    broadcast_types_task = Task.async(fn -> broadcast_caller_protocol_dispatch_types(graph) end)
+
+    page_entry_mfas = Enum.flat_map(pages, &list_page_entry_mfas/1)
+
+    client_types =
+      graph
+      |> Digraph.reachable(page_entry_mfas, opaque_vertex?: &protocol_function_mfa?/1)
+      |> protocol_dispatch_types()
+
+    MapSet.union(client_types, Task.await(broadcast_types_task, :infinity))
   end
 
   @doc """

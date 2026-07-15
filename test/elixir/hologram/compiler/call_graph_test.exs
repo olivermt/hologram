@@ -1353,7 +1353,7 @@ defmodule Hologram.Compiler.CallGraphTest do
       assert {StringCharsModule12, :to_string, 1} in result
     end
 
-    test "includes protocol implementations whose type is created only in a page's server init",
+    test "excludes protocol implementations whose type is created only in a page's server init",
          %{
            full_call_graph: call_graph
          } do
@@ -1363,8 +1363,8 @@ defmodule Hologram.Compiler.CallGraphTest do
         |> add_edge({Module17, :init, 3}, Module12)
         |> list_runtime_mfas(Reflection.list_pages())
 
-      assert {StringCharsModule12, :__impl__, 1} in result
-      assert {StringCharsModule12, :to_string, 1} in result
+      refute {StringCharsModule12, :__impl__, 1} in result
+      refute {StringCharsModule12, :to_string, 1} in result
     end
 
     test "includes protocol implementations whose type is reachable from broadcast callers", %{
