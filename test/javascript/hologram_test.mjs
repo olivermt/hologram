@@ -2503,6 +2503,40 @@ describe("Hologram", () => {
       Hologram.virtualDocument = {sel: "html", data: {}, children: []};
     };
 
+    it("focuses after patch, consumes effects once, and tolerates removed targets", () => {
+      const input = document.createElement("input");
+      input.id = "queued-focus";
+      const focus = sinon.spy(input, "focus");
+      const effect = (id) =>
+        Type.map([
+          [Type.atom("type"), Type.atom("focus")],
+          [Type.atom("element_id"), Type.bitstring(id)],
+        ]);
+      const component = Type.map([
+        [
+          Type.atom("dom_effects"),
+          Type.list([effect("missing"), effect(input.id)]),
+        ],
+      ]);
+      ComponentRegistry.populate(
+        Type.map([[cid1, Type.map([[Type.atom("struct"), component]])]]),
+      );
+      stubRender(() => {
+        document.body.appendChild(input);
+        return Hologram.virtualDocument;
+      });
+      try {
+        Hologram.render();
+        assert.strictEqual(document.activeElement, input);
+        Hologram.render();
+        assert.isTrue(focus.calledOnce);
+        assert.deepEqual(component.data["atom(dom_effects)"][1], Type.list());
+      } finally {
+        input.remove();
+        ComponentRegistry.clear();
+      }
+    });
+
     it("reconciles the global and resolved observer bindings collected during the render", () => {
       const listenerBindings = [
         {target: window, eventName: "keydown", handler: () => {}},
