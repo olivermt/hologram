@@ -128,8 +128,15 @@ export default class Type {
   }
 
   static componentStruct(data = {}) {
-    let {emittedContext, nextAction, nextCommand, nextPage, props, state} =
-      data;
+    let {
+      domEffects = Type.list(),
+      emittedContext,
+      nextAction,
+      nextCommand,
+      nextPage,
+      props,
+      state,
+    } = data;
 
     if (typeof emittedContext === "undefined") {
       emittedContext = Type.map();
@@ -156,6 +163,7 @@ export default class Type {
     }
 
     return Type.struct("Hologram.Component", [
+      [Type.atom("dom_effects"), domEffects],
       [Type.atom("emitted_context"), emittedContext],
       [Type.atom("next_action"), nextAction],
       [Type.atom("next_command"), nextCommand],

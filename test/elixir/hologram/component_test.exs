@@ -17,6 +17,19 @@ defmodule Hologram.ComponentTest do
 
   @server %Server{cid: "page"}
 
+  test "put_focus/2 queues focus effects in order and preserves component state" do
+    component = %Component{state: %{value: 123}}
+    result = component |> put_focus("search") |> put_focus("trigger")
+    assert result.state == component.state
+
+    assert result.dom_effects == [
+             %{type: :focus, element_id: "search"},
+             %{type: :focus, element_id: "trigger"}
+           ]
+
+    assert {:put_focus, 2} in Component.__helper_imports__()
+  end
+
   test "__is_hologram_component__/0" do
     assert Module1.__is_hologram_component__()
   end

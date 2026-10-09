@@ -7,7 +7,8 @@ defmodule Hologram.Component do
   alias Hologram.Server
   alias Hologram.Server.Broadcast
 
-  defstruct emitted_context: %{},
+  defstruct dom_effects: [],
+            emitted_context: %{},
             next_action: nil,
             next_command: nil,
             next_page: nil,
@@ -32,6 +33,7 @@ defmodule Hologram.Component do
   end
 
   @type t :: %__MODULE__{
+          dom_effects: [map],
           emitted_context: %{atom => any} | %{{module, atom} => any},
           next_action: Action.t() | nil,
           next_command: Command.t() | nil,
@@ -84,6 +86,7 @@ defmodule Hologram.Component do
       put_command: 2,
       put_command: 3,
       put_context: 3,
+      put_focus: 2,
       put_page: 2,
       put_page: 3,
       put_state: 2,
@@ -354,6 +357,16 @@ defmodule Hologram.Component do
   @spec put_context(Component.t(), any, any) :: Component.t()
   def put_context(%{emitted_context: context} = component, key, value) do
     %{component | emitted_context: Map.put(context, key, value)}
+  end
+
+  @doc """
+  Queues focus for the element with the given ID after the next DOM render.
+  The effect is consumed once, including when the element no longer exists.
+  """
+  @spec put_focus(Component.t(), String.t()) :: Component.t()
+  def put_focus(%Component{dom_effects: effects} = component, element_id)
+      when is_binary(element_id) do
+    %{component | dom_effects: effects ++ [%{type: :focus, element_id: element_id}]}
   end
 
   @doc """

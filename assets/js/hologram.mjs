@@ -37,6 +37,7 @@ import Vdom from "./vdom.mjs";
 import ChangeEvent from "./events/change_event.mjs";
 import ClickEvent from "./events/click_event.mjs";
 import ClickOutsideEvent from "./events/click_outside_event.mjs";
+import DragEvent, {DropTargetDragEvent} from "./events/drag_event.mjs";
 import FocusEvent from "./events/focus_event.mjs";
 import InputEvent from "./events/input_event.mjs";
 import KeyboardEvent from "./events/keyboard_event.mjs";
@@ -651,6 +652,7 @@ export default class Hologram {
       // now that the DOM is patched, so each re-syncs the children it watches and recomputes - firing
       // again as content this render added extends or fills the container.
       EventListeners.recheckScrollEdges();
+      Hologram.#executeDomEffects();
     } finally {
       // A template expression is app code and can raise, so the flag is cleared on the way out
       // either way. Leaving it set would silence every dispatch from here on.
@@ -693,6 +695,30 @@ export default class Hologram {
       })),
       (digest) => $.#handleScriptFailure(digest),
     );
+  }
+
+  // Focus runs while dispatches are still deferred, after the DOM and listeners are ready.
+  // Deps: [:maps.get/2, :maps.get/3]
+  static #executeDomEffects() {
+    for (const [cid, entry] of Object.values(ComponentRegistry.entries.data)) {
+      const component = Erlang_Maps["get/2"](Type.atom("struct"), entry);
+      const effects = Erlang_Maps["get/3"](
+        Type.atom("dom_effects"),
+        component,
+        Type.list(),
+      );
+      if (effects.data.length === 0) continue;
+
+      // Consume before focusing: focus can synchronously dispatch another DOM event.
+      ComponentRegistry.clearDomEffects(cid);
+      for (const effect of effects.data) {
+        const type = Erlang_Maps["get/2"](Type.atom("type"), effect);
+        if (type.value === "focus") {
+          const id = Erlang_Maps["get/2"](Type.atom("element_id"), effect);
+          document.getElementById(Bitstring.toText(id))?.focus?.();
+        }
+      }
+    }
   }
 
   static run() {
@@ -1146,6 +1172,17 @@ export default class Hologram {
 
       case "click_outside":
         return ClickOutsideEvent;
+
+      case "drag":
+      case "dragend":
+      case "dragleave":
+      case "dragstart":
+        return DragEvent;
+
+      case "dragenter":
+      case "dragover":
+      case "drop":
+        return DropTargetDragEvent;
 
       case "input":
         return InputEvent;
